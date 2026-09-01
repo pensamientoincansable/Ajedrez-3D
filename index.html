@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ajedrez 3D Web</title>
+    <title>Ajedrez 3D</title>
     <link rel="stylesheet" href="style.css">
     <!-- Import maps polyfill -->
     <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
@@ -23,15 +23,36 @@
     <div id="game-container"></div>
 
     <div id="ui-layer">
-        <div id="turn-indicator" class="panel">Turno: Blancas</div>
-        <div id="controls-panel">
-            <button id="reset-btn" class="btn">Reiniciar</button>
-            <button id="cpu-btn" class="btn">Vs CPU</button>
-            <button id="pvp-btn" class="btn">2 Jugadores</button>
+        <div id="top-bar">
+            <div id="turn-indicator" class="panel">Turno: Blancas</div>
+            <div id="status-indicator" class="panel status-panel">Listo</div>
         </div>
+
+        <div id="difficulty-panel" class="panel">
+            <span class="diff-label">Dificultad:</span>
+            <span id="difficulty-display" class="diff-value">Medio</span>
+        </div>
+
+        <div id="controls-panel">
+            <button id="cpu-btn" class="btn">
+                <span class="btn-icon">🤖</span>
+                <span class="btn-text">Vs CPU (Medio)</span>
+            </button>
+            <button id="pvp-btn" class="btn">
+                <span class="btn-icon">👥</span>
+                <span class="btn-text">2 Jugadores</span>
+            </button>
+            <button id="reset-btn" class="btn btn-danger">
+                <span class="btn-icon">🔄</span>
+                <span class="btn-text">Reiniciar</span>
+            </button>
+        </div>
+
         <div id="message-overlay" class="hidden">
-            <h2 id="game-message"></h2>
-            <button id="close-msg" class="btn">Continuar</button>
+            <div class="overlay-content">
+                <h2 id="game-message"></h2>
+                <button id="close-msg" class="btn">Continuar</button>
+            </div>
         </div>
     </div>
 
