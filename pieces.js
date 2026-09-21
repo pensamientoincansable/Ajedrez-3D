@@ -3,6 +3,10 @@ import * as THREE from 'three';
 export class PieceFactory {
     constructor() {
         // Crystalline materials - professional PBR with transmission
+        // NOTE: these materials are SHARED by all pieces. Never mutate
+        // opacity/transparent/emissive on them per-piece (e.g. during capture
+        // animations) or every piece using the material will be affected.
+        // Use prepareForCapture() to clone materials before fading a piece.
         this.materials = {
             white: new THREE.MeshPhysicalMaterial({
                 color: 0xe8f4ff,
@@ -18,7 +22,7 @@ export class PieceFactory {
                 reflectivity: 0.9,
                 envMapIntensity: 1.2,
                 flatShading: false,
-                side: THREE.DoubleSide
+                side: THREE.FrontSide
             }),
             black: new THREE.MeshPhysicalMaterial({
                 color: 0x1e1e2e,
@@ -34,7 +38,7 @@ export class PieceFactory {
                 reflectivity: 0.85,
                 envMapIntensity: 1.0,
                 flatShading: false,
-                side: THREE.DoubleSide
+                side: THREE.FrontSide
             })
         };
 
@@ -78,13 +82,92 @@ export class PieceFactory {
 
         // Geometry cache for performance
         this.geometryCache = new Map();
+        // Track shared geometries so dispose logic never frees them
+        // while other pieces are still using them.
+        this.sharedGeometries = new Set();
+        this.performanceMode = false;
     }
 
     getCachedGeometry(key, factory) {
         if (!this.geometryCache.has(key)) {
-            this.geometryCache.set(key, factory());
+            const geo = factory();
+            this.geometryCache.set(key, geo);
+            this.sharedGeometries.add(geo);
         }
         return this.geometryCache.get(key);
+    }
+
+    isSharedGeometry(geometry) {
+        return this.sharedGeometries.has(geometry);
+    }
+
+    /**
+     * Clone every material used by a piece group so per-piece effects
+     * (capture fade-out, selection glow) never leak into the materials
+     * shared by all the other pieces. Safe to call multiple times.
+     */
+    prepareForCapture(group) {
+        group.traverse(child => {
+            if (child.isMesh && child.material) {
+                const markCloned = (m) => {
+                    const clone = m.clone();
+                    clone.userData.clonedForCapture = true;
+                    return clone;
+                };
+                if (Array.isArray(child.material)) {
+                    child.material = child.material.map(markCloned);
+                } else if (!child.material.userData.clonedForCapture) {
+                    child.material = markCloned(child.material);
+                }
+            }
+        });
+    }
+
+    /**
+     * Restore shared materials to their opaque defaults. Used as a
+     * safety net in case a previous session left them transparent.
+     */
+    restoreSharedMaterials() {
+        const shared = [
+            this.materials.white,
+            this.materials.black,
+            this.crystalGold,
+            this.crystalRuby,
+            this.crystalIce
+        ];
+        shared.forEach(m => {
+            if (!m) return;
+            m.transparent = false;
+            m.opacity = 1;
+            m.depthWrite = true;
+            m.needsUpdate = true;
+        });
+    }
+
+    /**
+     * Lighter crystal settings for mobile GPUs where heavy transmission
+     * can glitch or tank the framerate. Keeps the crystal look but with
+     * cheaper, more stable parameters.
+     */
+    setPerformanceMode(enabled) {
+        this.performanceMode = !!enabled;
+        if (!enabled) return;
+        const white = this.materials.white;
+        const black = this.materials.black;
+        white.transmission = 0.35;
+        white.thickness = 0.4;
+        white.clearcoat = 0.6;
+        white.envMapIntensity = 0.9;
+        black.transmission = 0.15;
+        black.thickness = 0.4;
+        black.clearcoat = 0.6;
+        black.envMapIntensity = 0.8;
+        this.crystalIce.transmission = 0.6;
+        this.crystalIce.thickness = 0.5;
+        this.crystalRuby.transmission = 0.4;
+        [white, black, this.crystalGold, this.crystalRuby, this.crystalIce].forEach(m => {
+            m.needsUpdate = true;
+        });
     }
 
     createPiece(type, color) {
