@@ -99,21 +99,39 @@ export class ChessBoard {
         border.castShadow = true;
         this.group.add(border);
 
-        // Inner crystal inlay - glowing edge
-        const inlayGeo = new THREE.BoxGeometry(borderSize + 0.02, 0.04, borderSize + 0.02);
+        // Inner crystal inlay - glowing frame AROUND the 8x8 squares.
+        // NOTE: this used to be a solid plate covering the whole board,
+        // which hid/glitched the square textures. It is now a thin
+        // perimeter frame sitting on the wooden border, outside the
+        // playable squares (squares span [-4, 4], border spans [-4.4, 4.4]).
         const inlayMat = new THREE.MeshPhysicalMaterial({
             color: 0xffd700,
             roughness: 0.1,
             metalness: 0.9,
-            transmission: 0.3,
             emissive: 0x332200,
-            emissiveIntensity: 0.3,
+            emissiveIntensity: 0.35,
             transparent: true,
-            opacity: 0.9
+            opacity: 0.85
         });
-        const inlay = new THREE.Mesh(inlayGeo, inlayMat);
-        inlay.position.y = this.boardHeight / 2 + 0.01;
-        this.group.add(inlay);
+        const frameOffset = 4.2;      // center of the wooden border ring
+        const frameLength = 8.8;      // full border width
+        const frameWidth = 0.1;
+        const frameHeight = 0.03;
+        const frameY = this.boardHeight / 2 - 0.03;
+        const inlayGeoH = new THREE.BoxGeometry(frameLength, frameHeight, frameWidth);
+        // Vertical strips slightly shorter so corners don't overlap (z-fighting)
+        const inlayGeoV = new THREE.BoxGeometry(frameWidth, frameHeight, frameLength - frameWidth * 2);
+        [
+            { geo: inlayGeoH, x: 0, z: frameOffset },
+            { geo: inlayGeoH, x: 0, z: -frameOffset },
+            { geo: inlayGeoV, x: frameOffset, z: 0 },
+            { geo: inlayGeoV, x: -frameOffset, z: 0 }
+        ].forEach(pos => {
+            const strip = new THREE.Mesh(pos.geo, inlayMat);
+            strip.position.set(pos.x, frameY, pos.z);
+            strip.receiveShadow = true;
+            this.group.add(strip);
+        });
 
         // Outer golden trim
         const trimThickness = 0.12;
@@ -339,6 +357,124 @@ export class ChessBoard {
         }
     }
 
+    // ------------------------------------------------------------------
+    // Piece selection markers (used for both the human player and the CPU)
+    // A glowing ring + light halo is drawn around the selected piece so it
+    // is obvious which piece is selected / about to move.
+    // ------------------------------------------------------------------
+    setPieceSelection(x, z, color = 0x00e5ff) {
+        this.clearPieceSelection();
+
+        const marker = new THREE.Group();
+        const y = this.boardHeight / 2 + 0.02;
+
+        // Ground ring under the piece
+        const ringGeo = new THREE.RingGeometry(0.34, 0.48, 40);
+        const ringMat = new THREE.MeshBasicMaterial({
+            color: color,
+            transparent: true,
+            opacity: 0.9,
+            side: THREE.DoubleSide,
+            depthWrite: false
+        });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = 0.005;
+        ring.renderOrder = 12;
+        marker.add(ring);
+
+        // Vertical light halo around the piece body
+        const haloGeo = new THREE.CylinderGeometry(0.42, 0.5, 1.1, 24, 1, true);
+        const haloMat = new THREE.MeshBasicMaterial({
+            color: color,
+            transparent: true,
+            opacity: 0.16,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending
+        });
+        const halo = new THREE.Mesh(haloGeo, haloMat);
+        halo.position.y = 0.55;
+        halo.renderOrder = 11;
+        marker.add(halo);
+
+        marker.position.set((x - 3.5) * this.squareSize, y, (z - 3.5) * this.squareSize);
+        this.group.add(marker);
+        this.selectionMarker = marker;
+    }
+
+    clearPieceSelection() {
+        if (this.selectionMarker) {
+            this.selectionMarker.traverse(child => {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) child.material.dispose();
+            });
+            this.group.remove(this.selectionMarker);
+            this.selectionMarker = null;
+        }
+    }
+
+    // CPU move hint: marks origin (from) and destination (to) squares
+    // briefly so the player can see which piece the CPU chose.
+    showCpuHint(from, to) {
+        this.clearCpuHint();
+        this.cpuHintMarkers = [];
+
+        const makePin = (pos, color) => {
+            const pin = new THREE.Group();
+            const ringGeo = new THREE.RingGeometry(0.3, 0.46, 40);
+            const ringMat = new THREE.MeshBasicMaterial({
+                color: color,
+                transparent: true,
+                opacity: 0.95,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.rotation.x = -Math.PI / 2;
+            ring.renderOrder = 12;
+            pin.add(ring);
+
+            const dotGeo = new THREE.CircleGeometry(0.1, 20);
+            const dotMat = new THREE.MeshBasicMaterial({
+                color: color,
+                transparent: true,
+                opacity: 0.9,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+            const dot = new THREE.Mesh(dotGeo, dotMat);
+            dot.rotation.x = -Math.PI / 2;
+            dot.position.y = 0.004;
+            dot.renderOrder = 13;
+            pin.add(dot);
+
+            pin.position.set(
+                (pos.x - 3.5) * this.squareSize,
+                this.boardHeight / 2 + 0.02,
+                (pos.z - 3.5) * this.squareSize
+            );
+            this.group.add(pin);
+            this.cpuHintMarkers.push(pin);
+        };
+
+        if (from) makePin(from, 0xff9f43); // orange = piece the CPU picked
+        if (to) makePin(to, 0x2ed573);     // green = destination
+    }
+
+    clearCpuHint() {
+        if (this.cpuHintMarkers) {
+            this.cpuHintMarkers.forEach(pin => {
+                pin.traverse(child => {
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) child.material.dispose();
+                });
+                this.group.remove(pin);
+            });
+        }
+        this.cpuHintMarkers = [];
+    }
+
     animate(time) {
         if (this.highlightPulse && this.highlightMesh && this.highlightMesh.visible) {
             const pulse = 0.5 + 0.5 * Math.sin(time * 0.004);
@@ -350,6 +486,32 @@ export class ChessBoard {
             const pulse = Math.sin(time * 0.008);
             this.checkHighlight.scale.setScalar(0.9 + pulse * 0.15);
             this.checkHighlight.material.opacity = 0.5 + pulse * 0.2;
+        }
+
+        // Selected-piece marker pulse (player + CPU)
+        if (this.selectionMarker) {
+            const pulse = 0.5 + 0.5 * Math.sin(time * 0.006);
+            const ring = this.selectionMarker.children[0];
+            const halo = this.selectionMarker.children[1];
+            if (ring) {
+                ring.scale.setScalar(1 + pulse * 0.08);
+                ring.material.opacity = 0.65 + pulse * 0.3;
+            }
+            if (halo) {
+                halo.material.opacity = 0.1 + pulse * 0.12;
+                halo.rotation.y += 0.01;
+            }
+        }
+
+        // CPU hint pulse
+        if (this.cpuHintMarkers && this.cpuHintMarkers.length) {
+            const pulse = 0.5 + 0.5 * Math.sin(time * 0.01);
+            this.cpuHintMarkers.forEach(pin => {
+                pin.scale.setScalar(1 + pulse * 0.1);
+                pin.children.forEach(child => {
+                    if (child.material) child.material.opacity = 0.6 + pulse * 0.35;
+                });
+            });
         }
 
         if (this.particles) {

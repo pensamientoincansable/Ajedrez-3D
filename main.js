@@ -17,12 +17,18 @@ class Game {
         this.playerName = localStorage.getItem('chess3d_playerName') || '';
 
         this.selectedSquare = null;
+        this.selectedMesh = null;
         this.piecesMeshes = new Map();
         this.isAnimating = false;
         this.isAiThinking = false;
         this.legalMoveHighlights = [];
         this.myColorOnline = 'white';
         this.moveHistory = [];
+        this.gameGeneration = 0; // invalidates pending CPU timeouts after reset
+        this.isCoarsePointer = window.matchMedia
+            ? window.matchMedia('(pointer: coarse)').matches
+            : false;
+        this.isSmallScreen = () => window.innerWidth < 768;
 
         this.initScene();
         this.initLights();
@@ -40,7 +46,8 @@ class Game {
     initScene() {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x0a0a14);
-        this.scene.fog = new THREE.Fog(0x0a0a14, 18, 45);
+        // Wide fog range so the board never fades out at max zoom-out
+        this.scene.fog = new THREE.Fog(0x0a0a14, 26, 70);
 
         // Environment map for crystal reflections
         const cubeRenderTarget = new THREE.WebGLCubeRenderTarget(256);
@@ -107,7 +114,7 @@ class Game {
             stencil: false
         });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.renderer.setPixelRatio(this.getOptimalPixelRatio());
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -119,9 +126,23 @@ class Game {
         this.renderer.autoClear = true;
     }
 
+    getOptimalPixelRatio() {
+        // Cap resolution on small/touch screens for stable framerate
+        // and to avoid transmission glitches on mobile GPUs.
+        const dpr = window.devicePixelRatio || 1;
+        if (this.isSmallScreen() || this.isCoarsePointer) {
+            return Math.min(dpr, 1.5);
+        }
+        return Math.min(dpr, 2);
+    }
+
     initGameObjects() {
         this.board = new ChessBoard(this.scene);
         this.pieceFactory = new PieceFactory();
+        // Cheaper, glitch-free crystal on mobile GPUs
+        if (this.isSmallScreen() || this.isCoarsePointer) {
+            this.pieceFactory.setPerformanceMode(true);
+        }
         this.gameLogic = new GameLogic();
         this.gameLogic.setDifficulty(this.difficulty);
         this.inputController = new InputController(this.camera, this.scene, this.container);
@@ -407,10 +428,18 @@ class Game {
         this.clearLegalMoveHighlights();
         this.board.clearCheckHighlight();
         this.board.highlightSquare(-1, -1);
+        this.board.clearPieceSelection();
+        this.board.clearCpuHint();
         this.selectedSquare = null;
+        this.selectedMesh = null;
         this.moveHistory = [];
         this.isAnimating = false;
         this.isAiThinking = false;
+        this.gameGeneration++;
+
+        // Safety net: shared crystal materials must always be opaque.
+        // (A capture animation mutating them used to hide every piece.)
+        this.pieceFactory.restoreSharedMaterials();
 
         this.gameLogic.reset();
         this.gameLogic.setDifficulty(this.difficulty);
@@ -431,10 +460,29 @@ class Game {
     }
 
     updateEnvMap() {
-        // Update cube camera for crystal reflections
-        if (this.cubeCamera) {
+        // Update cube camera for crystal reflections.
+        // NOTE: this renders the scene 6 extra times, so it is intentionally
+        // called ONLY when a board is (re)created - never mid-game - to avoid
+        // visible texture glitches / frame drops on every Nth move.
+        if (!this.cubeCamera) return;
+        try {
+            // Hide transient overlays so they don't bake into reflections
+            const hidden = [];
+            if (this.board.highlightMesh) hidden.push(this.board.highlightMesh);
+            if (this.board.selectionMarker) hidden.push(this.board.selectionMarker);
+            if (this.board.checkHighlight) hidden.push(this.board.checkHighlight);
+            const prevVisible = hidden.map(m => m.visible);
+            const prevLegalVisible = this.legalMoveHighlights.map(m => m.visible);
+            hidden.forEach(m => { m.visible = false; });
+            this.legalMoveHighlights.forEach(m => { m.visible = false; });
+
             this.cubeCamera.position.set(0, 3, 0);
             this.cubeCamera.update(this.renderer, this.scene);
+
+            hidden.forEach((m, i) => { m.visible = prevVisible[i]; });
+            this.legalMoveHighlights.forEach((m, i) => { m.visible = prevLegalVisible[i]; });
+        } catch (err) {
+            console.warn('[Game] envMap update skipped:', err);
         }
     }
 
@@ -463,8 +511,19 @@ class Game {
 
     disposeMesh(mesh) {
         mesh.traverse(child => {
-            if (child.geometry) child.geometry.dispose();
-            // Don't dispose materials as they are shared/cached
+            // Only dispose geometries that are NOT shared from the factory
+            // cache - disposing shared ones forces GPU re-uploads (glitches)
+            // and can briefly corrupt other pieces using them.
+            if (child.geometry && !this.pieceFactory.isSharedGeometry(child.geometry)) {
+                child.geometry.dispose();
+            }
+            // Dispose cloned (per-piece) materials, keep shared ones alive
+            if (child.material) {
+                const mats = Array.isArray(child.material) ? child.material : [child.material];
+                mats.forEach(m => {
+                    if (m && m.userData && m.userData.clonedForCapture) m.dispose();
+                });
+            }
         });
     }
 
@@ -546,8 +605,21 @@ class Game {
             return;
         }
 
+        // Clear any previous selection visuals first
+        this.deselect();
+
         this.selectedSquare = { x, z };
         this.board.highlightSquare(x, z, piece.color === 'white' ? 0x88ccff : 0xffaa66);
+
+        // Mark the selected PIECE itself: glowing ring + halo + slight lift
+        const markerColor = piece.color === 'white' ? 0x00e5ff : 0xffb020;
+        this.board.setPieceSelection(x, z, markerColor);
+        const mesh = this.piecesMeshes.get(`${x},${z}`);
+        if (mesh) {
+            this.selectedMesh = mesh;
+            mesh.position.y = 0.18;
+        }
+        this.inputController.vibrate(15);
 
         this.clearLegalMoveHighlights();
         const moves = this.gameLogic.getAllLegalMoves(piece.color);
@@ -556,8 +628,14 @@ class Game {
     }
 
     deselect() {
+        // Restore lifted piece
+        if (this.selectedMesh) {
+            this.selectedMesh.position.y = 0;
+            this.selectedMesh = null;
+        }
         this.selectedSquare = null;
         this.board.highlightSquare(-1, -1);
+        this.board.clearPieceSelection();
         this.clearLegalMoveHighlights();
     }
 
@@ -615,12 +693,9 @@ class Game {
         const hasCapture = !!capturedMesh || moveResult.enPassantCapture;
 
         const finish = () => {
-            // Handle en passant visual removal
+            // Handle en passant visual removal: the captured pawn sits at
+            // the destination file on the origin rank (toX, fromZ).
             if (moveResult.enPassantCapture) {
-                const capZ = moveResult.piece?.color === 'white' || this.gameLogic.turn === 'black' ? toZ - 1 : toZ + 1;
-                // Actually en passant captured pawn is behind
-                const epZ = this.gameLogic.turn === 'white' ? toZ - 1 : toZ + 1; // After toggle, turn is opponent, so inverse
-                // Find pawn to remove - it's at toX, fromZ
                 const epKey = `${toX},${fromZ}`;
                 const epMesh = this.piecesMeshes.get(epKey);
                 if (epMesh) {
@@ -709,6 +784,11 @@ class Game {
     }
 
     animateCapture(mesh, onComplete) {
+        // CRITICAL FIX: piece materials are shared between ALL pieces.
+        // Clone them first so the fade-out below only affects the captured
+        // piece - otherwise every piece of that color turns invisible.
+        this.pieceFactory.prepareForCapture(mesh);
+
         const start = mesh.position.clone();
         const duration = 320;
         const startTime = performance.now();
@@ -779,10 +859,9 @@ class Game {
             setTimeout(() => this.triggerAiMove(), 500);
         }
 
-        // Update env map occasionally for crystal reflections
-        if (this.moveHistory.length % 3 === 0) {
-            setTimeout(() => this.updateEnvMap(), 100);
-        }
+        // NOTE: envMap is intentionally NOT refreshed here. Refreshing it
+        // every few moves re-renders the scene 6x and caused the visible
+        // texture glitches. It only updates on board (re)creation.
     }
 
     triggerAiMove() {
@@ -797,29 +876,74 @@ class Game {
         // Difficulty based delay for realism
         const delays = { easy: 400, medium: 800, hard: 1200 };
         const delay = delays[this.difficulty] || 800;
+        const generation = this.gameGeneration;
 
         setTimeout(() => {
-            const move = this.gameLogic.makeBestMove('black');
+            // Board was reset while CPU "thought" - abort stale move
+            if (generation !== this.gameGeneration || this.state !== 'PLAYING') {
+                this.isAiThinking = false;
+                return;
+            }
+            let move = null;
+            try {
+                move = this.gameLogic.makeBestMove('black');
+            } catch (err) {
+                console.error('[Game] CPU move failed:', err);
+                this.isAiThinking = false;
+                this.updateTurnUI();
+                return;
+            }
+
             if (!move) {
                 this.isAiThinking = false;
                 this.checkGameEnd();
                 return;
             }
 
-            const result = this.gameLogic.move(move.from.x, move.from.z, move.to.x, move.to.z);
-            if (result.success) {
-                this.animateMove(move.from.x, move.from.z, move.to.x, move.to.z, result, () => {
-                    this.afterMove(result, {
-                        fromX: move.from.x,
-                        fromZ: move.from.z,
-                        toX: move.to.x,
-                        toZ: move.to.z
-                    });
+            // Mark the CPU's chosen piece (origin + destination) briefly so
+            // the player can SEE which piece the CPU is about to move.
+            this.board.showCpuHint(move.from, move.to);
+            this.board.setPieceSelection(move.from.x, move.from.z, 0xff6b35);
+            const cpuMesh = this.piecesMeshes.get(`${move.from.x},${move.from.z}`);
+            if (cpuMesh) cpuMesh.position.y = 0.18;
+
+            // Short pause so the hint is visible before the piece moves
+            setTimeout(() => {
+                if (cpuMesh) cpuMesh.position.y = 0;
+                this.board.clearCpuHint();
+                this.board.clearPieceSelection();
+
+                // Board was reset during the hint - abort stale move
+                if (generation !== this.gameGeneration || this.state !== 'PLAYING') {
                     this.isAiThinking = false;
-                });
-            } else {
-                this.isAiThinking = false;
-            }
+                    return;
+                }
+
+                let result;
+                try {
+                    result = this.gameLogic.move(move.from.x, move.from.z, move.to.x, move.to.z);
+                } catch (err) {
+                    console.error('[Game] CPU move apply failed:', err);
+                    this.isAiThinking = false;
+                    this.updateTurnUI();
+                    return;
+                }
+
+                if (result.success) {
+                    this.animateMove(move.from.x, move.from.z, move.to.x, move.to.z, result, () => {
+                        this.afterMove(result, {
+                            fromX: move.from.x,
+                            fromZ: move.from.z,
+                            toX: move.to.x,
+                            toZ: move.to.z
+                        });
+                        this.isAiThinking = false;
+                    });
+                } else {
+                    this.isAiThinking = false;
+                    this.updateTurnUI();
+                }
+            }, 750);
         }, delay);
     }
 
@@ -1010,8 +1134,9 @@ class Game {
     }
 
     onWindowResize() {
-        this.camera.aspect = window.innerWidth / window.innerHeight;
-        this.camera.updateProjectionMatrix();
+        // CameraManager owns aspect/FOV/zoom responsive rules
+        if (this.cameraManager) this.cameraManager.handleResize();
+        this.renderer.setPixelRatio(this.getOptimalPixelRatio());
         this.renderer.setSize(window.innerWidth, window.innerHeight);
     }
 

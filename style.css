@@ -52,7 +52,18 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
+    height: 100dvh;
     z-index: 1;
+    touch-action: none;
+    overscroll-behavior: none;
+}
+
+#game-container canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    outline: none;
 }
 
 /* Menu Overlay - Professional */
@@ -553,12 +564,13 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
+    height: 100dvh;
     z-index: 10;
     pointer-events: none;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    padding: 20px;
+    padding: calc(12px + env(safe-area-inset-top, 0px)) calc(12px + env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) calc(12px + env(safe-area-inset-left, 0px));
 }
 
 #top-bar {
@@ -724,23 +736,168 @@ body {
     font-size: 0.85rem;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-    .menu-content { padding: 25px 20px; margin: 10px; }
-    .game-title { font-size: 2.5rem; flex-direction: column; gap: 5px; }
-    .title-3d { font-size: 2rem; }
-    .mode-cards { grid-template-columns: 1fr; }
-    .difficulty-cards { grid-template-columns: 1fr; }
-    .lobby-grid { grid-template-columns: 1fr; }
-    #top-bar { flex-direction: column; align-items: center; gap: 10px; }
-    .panel { min-width: 200px; font-size: 0.9rem; }
-    .timer-panel { top: auto; bottom: 80px; }
-    #message-overlay { width: 90%; padding: 30px 25px; }
-    #game-message { font-size: 1.3rem; }
+/* ============================================================
+   Responsive: mobile -> tablet -> desktop -> TV
+   ============================================================ */
+
+/* Fluid title type everywhere */
+.game-title {
+    font-size: clamp(2rem, 6vw + 1rem, 3.5rem);
+}
+.title-3d {
+    font-size: clamp(1.6rem, 4vw + 1rem, 3rem);
 }
 
-@media (max-width: 480px) {
-    .game-title { font-size: 2rem; }
-    .mode-card { padding: 20px; }
-    .btn-large { padding: 14px 24px; font-size: 1rem; }
+/* Touch devices: bigger tap targets, no hover-only effects */
+@media (pointer: coarse) {
+    .btn {
+        min-height: 44px;
+        padding: 12px 20px;
+    }
+    .btn-small {
+        min-height: 40px;
+        padding: 10px 16px;
+    }
+    .mode-card:hover {
+        transform: none;
+    }
+    .diff-btn:hover {
+        transform: none;
+    }
+    #game-controls .btn {
+        flex: 1 1 auto;
+        max-width: 220px;
+    }
+}
+
+/* Tablets and small laptops */
+@media (max-width: 1024px) {
+    .menu-content { max-width: 92vw; padding: 32px 28px; }
+    .mode-cards { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+    .panel { font-size: 0.95rem; }
+}
+
+/* Mobile portrait */
+@media (max-width: 768px) {
+    .menu-overlay { padding: 12px; align-items: flex-start; }
+    .menu-content { padding: 25px 18px; margin: 10px 0 20px; border-radius: 18px; }
+    .game-title { flex-direction: column; gap: 5px; letter-spacing: -1px; }
+    .game-subtitle { font-size: 0.85rem; letter-spacing: 2px; }
+    .mode-cards { grid-template-columns: 1fr; gap: 14px; margin-bottom: 25px; }
+    .mode-card { padding: 18px; }
+    .mode-icon { font-size: 2rem; margin-bottom: 10px; }
+    .difficulty-section { padding: 18px 14px; margin-bottom: 25px; }
+    .difficulty-cards { grid-template-columns: 1fr; }
+    .diff-btn { flex-direction: row; justify-content: flex-start; text-align: left; padding: 14px; }
+    .diff-desc { text-align: left; }
+    .lobby-grid { grid-template-columns: 1fr; gap: 16px; }
+    .lobby-panel { padding: 18px; }
+    .menu-footer { font-size: 0.75rem; }
+
+    #game-ui { justify-content: flex-start; gap: 10px; }
+    #top-bar { flex-direction: row; align-items: stretch; justify-content: center; gap: 8px; }
+    .panel { min-width: 0; flex: 1 1 auto; max-width: 240px; font-size: 0.85rem; padding: 10px 12px; }
+    .mode-display { display: none; }
+    .timer-panel { top: auto; bottom: 86px; min-width: 170px; padding: 10px 16px; }
+    .timer-value { font-size: 1.4rem; }
+    #game-controls { position: fixed; left: 0; right: 0; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); padding: 0 12px; gap: 10px; }
+    #message-overlay { width: calc(100% - 32px); max-width: 420px; padding: 28px 22px; }
+    .overlay-content { min-width: 0; }
+    #game-message { font-size: 1.25rem; }
+}
+
+/* Very small phones */
+@media (max-width: 380px) {
+    .menu-content { padding: 20px 14px; }
+    .mode-card { padding: 15px; }
+    .mode-card h3 { font-size: 1.1rem; }
+    .btn-large { padding: 14px 20px; font-size: 0.95rem; }
+    #top-bar { gap: 6px; }
+    .panel { font-size: 0.78rem; padding: 8px 10px; border-radius: 10px; }
+    #game-controls .btn { font-size: 0.85rem; padding: 10px 12px; }
+    #game-message { font-size: 1.1rem; }
+}
+
+/* Landscape phones / short screens: compact HUD that never covers the board */
+@media (orientation: landscape) and (max-height: 520px) {
+    .menu-overlay { align-items: flex-start; padding: 10px; }
+    .menu-content { padding: 18px; margin: 6px 0 14px; }
+    .menu-header { margin-bottom: 18px; }
+    .game-title { font-size: 1.8rem; }
+    .game-subtitle { font-size: 0.75rem; margin-bottom: 8px; }
+    .title-decoration { margin-top: 8px; }
+    .mode-selection h2 { font-size: 1.1rem; margin-bottom: 12px; }
+    .mode-cards { grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+    .mode-card { padding: 12px; }
+    .mode-icon { font-size: 1.5rem; margin-bottom: 6px; }
+    .mode-card h3 { font-size: 1rem; margin-bottom: 4px; }
+    .mode-card p { font-size: 0.78rem; margin-bottom: 8px; }
+    .mode-features { display: none; }
+    .difficulty-section { padding: 14px; margin-bottom: 16px; }
+    .difficulty-cards { grid-template-columns: repeat(3, 1fr); }
+    .diff-btn { padding: 10px 8px; gap: 4px; }
+    .diff-icon { font-size: 1.3rem; }
+    .diff-name { font-size: 0.95rem; }
+    .diff-desc { display: none; }
+    .btn-large { padding: 12px 20px; font-size: 0.95rem; }
+    .menu-footer { display: none; }
+
+    #game-ui { gap: 6px; }
+    #top-bar { justify-content: flex-start; gap: 8px; }
+    .panel { font-size: 0.8rem; padding: 8px 12px; min-width: 0; }
+    .mode-display { display: none; }
+    .timer-panel {
+        top: calc(8px + env(safe-area-inset-top, 0px));
+        left: auto;
+        right: calc(8px + env(safe-area-inset-right, 0px));
+        transform: none;
+        min-width: 130px;
+        padding: 8px 12px;
+        gap: 4px;
+    }
+    .timer-value { font-size: 1.2rem; }
+    #game-controls {
+        position: fixed;
+        right: calc(8px + env(safe-area-inset-right, 0px));
+        bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+        left: auto;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 0;
+    }
+    #game-controls .btn { font-size: 0.8rem; padding: 8px 14px; }
+    #message-overlay { padding: 22px 26px; }
+    #game-message { font-size: 1.15rem; }
+    .overlay-content { gap: 14px; min-width: 0; }
+}
+
+/* Large desktop / TV: scale the HUD up for distance viewing */
+@media (min-width: 1600px) {
+    html { font-size: 112.5%; }
+    .menu-content { max-width: 1250px; padding: 48px; }
+    .panel { font-size: 1.05rem; padding: 14px 26px; min-width: 170px; }
+    .btn { font-size: 1.05rem; padding: 14px 28px; }
+    .btn-large { font-size: 1.2rem; padding: 18px 36px; }
+    #message-overlay { padding: 48px 60px; }
+    #game-message { font-size: 1.9rem; }
+    .timer-panel { min-width: 230px; }
+    .timer-value { font-size: 2rem; }
+}
+
+/* 4K TV */
+@media (min-width: 2560px) {
+    html { font-size: 150%; }
+    .menu-content { max-width: 1500px; }
+}
+
+/* Short landscape tablets */
+@media (min-width: 769px) and (max-height: 600px) {
+    #top-bar { gap: 10px; }
+    .panel { padding: 8px 14px; font-size: 0.85rem; min-width: 120px; }
+    .timer-panel { min-width: 160px; }
+}
+
+/* Reduced motion accessibility */
+@media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }

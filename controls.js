@@ -12,33 +12,65 @@ export class InputController {
             onPieceClick: null
         };
         this.lastClickTime = 0;
-        this.clickThreshold = 300;
+        // Tap vs drag detection: orbiting/zooming must not select squares
+        this.downX = 0;
+        this.downY = 0;
+        this.downTime = 0;
+        this.isDown = false;
+        this.maxTapDistance = 10; // px
+        this.maxTapDuration = 600; // ms
         this.init();
     }
 
     init() {
-        // Use pointerdown for responsiveness, but also handle touch
-        this.domElement.addEventListener('pointerdown', (e) => this.onPointerDown(e), { passive: false });
-        this.domElement.addEventListener('touchstart', (e) => {
-            // Prevent double handling
-            e.preventDefault();
-        }, { passive: false });
+        // Tap detection via down/up pair so camera drags and pinch-zoom
+        // gestures never trigger square selection (essential on touch).
+        this.domElement.addEventListener('pointerdown', (e) => this.onPointerDown(e));
+        this.domElement.addEventListener('pointerup', (e) => this.onPointerUp(e));
+        this.domElement.addEventListener('pointercancel', () => { this.isDown = false; });
     }
 
     onPointerDown(event) {
+        // Ignore multi-touch (pinch zoom) for selection purposes
+        if (event.isPrimary === false) {
+            this.isDown = false;
+            return;
+        }
+        this.isDown = true;
+        this.downX = event.clientX;
+        this.downY = event.clientY;
+        this.downTime = performance.now();
+    }
+
+    onPointerUp(event) {
+        if (!this.isDown) return;
+        this.isDown = false;
+
         // Prevent interaction if clicking on UI
         if (event.target.closest && event.target.closest('.menu-overlay, #game-ui, .panel, .btn')) {
             return;
         }
 
-        // Debounce rapid clicks
+        // It was a drag, not a tap: let OrbitControls have it
+        const dx = event.clientX - this.downX;
+        const dy = event.clientY - this.downY;
+        const dist = Math.hypot(dx, dy);
+        const duration = performance.now() - this.downTime;
+        if (dist > this.maxTapDistance || duration > this.maxTapDuration) return;
+
+        // Debounce rapid taps
         const now = performance.now();
         if (now - this.lastClickTime < 80) return;
         this.lastClickTime = now;
 
+        this.handleTap(event.clientX, event.clientY);
+    }
+
+    handleTap(clientX, clientY) {
         const rect = this.domElement.getBoundingClientRect();
-        this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        this.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        if (rect.width === 0 || rect.height === 0) return;
+        this.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+        this.pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
 
         this.raycaster.setFromCamera(this.pointer, this.camera);
 
