@@ -1,0 +1,20 @@
+{
+  "name": "ajedrez-3d-cristalino",
+  "version": "2.0.0",
+  "description": "Ajedrez 3D Edición Cristalina Profesional - Motor de ajedrez con IA avanzada y multijugador en tiempo real",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "serve": "npx serve ."
+  },
+  "keywords": ["chess", "3d", "threejs", "crystal", "multiplayer", "ai"],
+  "author": "PensamientoIncansable",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.14.2"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

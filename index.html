@@ -1,14 +1,13 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ajedrez 3D</title>
+    <title>Ajedrez 3D Cristalino - Professional Edition</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Import maps polyfill -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
     <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
-
     <script type="importmap">
         {
             "imports": {
@@ -18,45 +17,177 @@
         }
     </script>
 </head>
-
 <body>
     <div id="game-container"></div>
 
-    <div id="ui-layer">
+    <!-- Main Menu -->
+    <div id="main-menu" class="menu-overlay">
+        <div class="menu-content">
+            <div class="menu-header">
+                <h1 class="game-title">
+                    <span class="title-crystal">AJEDREZ</span>
+                    <span class="title-3d">3D</span>
+                </h1>
+                <p class="game-subtitle">Edición Cristalina Profesional</p>
+                <div class="title-decoration">
+                    <div class="crystal-line"></div>
+                    <div class="crystal-dot"></div>
+                    <div class="crystal-line"></div>
+                </div>
+            </div>
+
+            <div class="mode-selection">
+                <h2>Selecciona Modo de Juego</h2>
+                <div class="mode-cards">
+                    <div class="mode-card" data-mode="cpu">
+                        <div class="mode-icon">🤖</div>
+                        <h3>VS CPU</h3>
+                        <p>Juega contra la inteligencia artificial con 3 niveles de dificultad</p>
+                        <div class="mode-features">
+                            <span>• Fácil, Medio, Difícil</span>
+                            <span>• IA con minimax y poda alfa-beta</span>
+                        </div>
+                    </div>
+                    <div class="mode-card" data-mode="pvp">
+                        <div class="mode-icon">👥</div>
+                        <h3>1 vs 1 Local</h3>
+                        <p>Dos jugadores en el mismo dispositivo</p>
+                        <div class="mode-features">
+                            <span>• Turnos alternados</span>
+                            <span>• Ideal para aprender</span>
+                        </div>
+                    </div>
+                    <div class="mode-card" data-mode="online">
+                        <div class="mode-icon">🌐</div>
+                        <h3>1 vs 1 Online</h3>
+                        <p>Juega en tiempo real contra otro jugador</p>
+                        <div class="mode-features">
+                            <span>• Lobby multijugador</span>
+                            <span>• 20s por movimiento</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="difficulty-section" class="difficulty-section hidden">
+                <h3>Dificultad CPU</h3>
+                <div class="difficulty-cards">
+                    <button class="diff-btn" data-diff="easy">
+                        <span class="diff-icon">🌱</span>
+                        <span class="diff-name">Fácil</span>
+                        <span class="diff-desc">Movimientos aleatorios, ideal para principiantes</span>
+                    </button>
+                    <button class="diff-btn active" data-diff="medium">
+                        <span class="diff-icon">⚡</span>
+                        <span class="diff-name">Medio</span>
+                        <span class="diff-desc">Evaluación posicional, 2 jugadas adelante</span>
+                    </button>
+                    <button class="diff-btn" data-diff="hard">
+                        <span class="diff-icon">🔥</span>
+                        <span class="diff-name">Difícil</span>
+                        <span class="diff-desc">Minimax profundidad 3, ¡desafío extremo!</span>
+                    </button>
+                </div>
+            </div>
+
+            <button id="start-game-btn" class="btn btn-primary btn-large" disabled>
+                Selecciona un modo
+            </button>
+
+            <div class="menu-footer">
+                <p>Piezas cristalinas con geometría triangular • Motor de ajedrez profesional</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lobby Menu -->
+    <div id="lobby-menu" class="menu-overlay hidden">
+        <div class="menu-content lobby-content">
+            <div class="menu-header">
+                <h1>Lobby Multijugador</h1>
+                <p>Conecta con jugadores en tiempo real</p>
+            </div>
+
+            <div class="lobby-grid">
+                <div class="lobby-panel">
+                    <h3>Tu Perfil</h3>
+                    <div class="input-group">
+                        <label>Nombre de jugador</label>
+                        <input type="text" id="player-name-input" placeholder="Escribe tu nombre" maxlength="16">
+                    </div>
+                    <div id="current-room-display" class="current-room hidden">
+                        <span>Sala actual:</span>
+                        <strong id="current-room-id">-</strong>
+                    </div>
+                    <div id="lobby-status" class="status">Desconectado</div>
+                    <div id="lobby-message" class="lobby-message hidden"></div>
+                </div>
+
+                <div class="lobby-panel">
+                    <h3>Salas Disponibles</h3>
+                    <div id="rooms-list" class="rooms-list">
+                        <div class="loading">Buscando salas...</div>
+                    </div>
+                    <div class="lobby-actions">
+                        <button id="refresh-rooms-btn" class="btn btn-secondary">
+                            🔄 Actualizar
+                        </button>
+                        <button id="create-room-btn" class="btn btn-primary">
+                            ➕ Crear Sala
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="waiting-overlay" class="waiting-overlay hidden">
+                <div class="waiting-content">
+                    <div class="spinner"></div>
+                    <h3>Esperando oponente...</h3>
+                    <p>Comparte el código de sala con tu amigo</p>
+                    <p class="room-code-display">Código: <span id="waiting-room-code">-</span></p>
+                </div>
+            </div>
+
+            <button id="leave-lobby-btn" class="btn btn-danger">← Volver al Menú</button>
+        </div>
+    </div>
+
+    <!-- Game UI -->
+    <div id="game-ui" class="hidden">
         <div id="top-bar">
             <div id="turn-indicator" class="panel">Turno: Blancas</div>
-            <div id="status-indicator" class="panel status-panel">Listo</div>
+            <div id="game-mode-display" class="panel mode-display">VS CPU</div>
+            <div id="opponent-panel" class="panel hidden">
+                <span class="opponent-label">Oponente:</span>
+                <span id="opponent-display">-</span>
+            </div>
         </div>
 
-        <div id="difficulty-panel" class="panel">
-            <span class="diff-label">Dificultad:</span>
-            <span id="difficulty-display" class="diff-value">Medio</span>
+        <div id="timer-panel" class="panel timer-panel hidden">
+            <span class="timer-label">Tiempo:</span>
+            <span id="timer-display" class="timer-value">20s</span>
+            <div class="timer-bar">
+                <div id="timer-progress" class="timer-progress"></div>
+            </div>
         </div>
 
-        <div id="controls-panel">
-            <button id="cpu-btn" class="btn">
-                <span class="btn-icon">🤖</span>
-                <span class="btn-text">Vs CPU (Medio)</span>
+        <div id="game-controls">
+            <button id="back-to-menu-btn" class="btn btn-secondary">
+                <span class="btn-icon">🏠</span> Menú
             </button>
-            <button id="pvp-btn" class="btn">
-                <span class="btn-icon">👥</span>
-                <span class="btn-text">2 Jugadores</span>
-            </button>
-            <button id="reset-btn" class="btn btn-danger">
-                <span class="btn-icon">🔄</span>
-                <span class="btn-text">Reiniciar</span>
+            <button id="reset-game-btn" class="btn btn-secondary">
+                <span class="btn-icon">🔄</span> Reiniciar
             </button>
         </div>
 
         <div id="message-overlay" class="hidden">
             <div class="overlay-content">
-                <h2 id="game-message"></h2>
-                <button id="close-msg" class="btn">Continuar</button>
+                <h2 id="game-message">Jaque Mate!</h2>
+                <button id="close-msg-btn" class="btn btn-primary">Continuar</button>
             </div>
         </div>
     </div>
 
     <script type="module" src="./main.js"></script>
 </body>
-
 </html>
