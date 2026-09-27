@@ -726,6 +726,113 @@ body {
 
 .hidden { display: none !important; }
 
+/* More games 3D (Juegos π) - acceso inferior del menú principal */
+.more-games {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.more-games-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    max-width: 540px;
+    padding: 14px 22px;
+    border-radius: 16px;
+    text-align: left;
+    text-decoration: none;
+    background: linear-gradient(135deg,
+        rgba(0, 206, 201, 0.14) 0%,
+        rgba(108, 92, 231, 0.18) 55%,
+        rgba(253, 203, 110, 0.12) 100%);
+    border: 1px solid rgba(162, 155, 254, 0.35);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    overflow: hidden;
+}
+
+/* Brillo cristalino que recorre el botón */
+.more-games-btn::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -60%;
+    width: 40%;
+    height: 100%;
+    background: linear-gradient(100deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.14) 50%,
+        rgba(255, 255, 255, 0) 100%);
+    transform: skewX(-20deg);
+    transition: left 0.6s ease;
+    pointer-events: none;
+}
+
+.more-games-btn:hover,
+.more-games-btn:focus-visible {
+    border-color: var(--accent-secondary);
+    box-shadow: 0 12px 32px rgba(108, 92, 231, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.more-games-btn:hover::after,
+.more-games-btn:focus-visible::after { left: 120%; }
+
+.more-games-btn:focus-visible {
+    outline: 2px solid var(--accent-cyan);
+    outline-offset: 3px;
+}
+
+.more-games-icon {
+    font-size: 1.6rem;
+    line-height: 1;
+    filter: drop-shadow(0 0 10px rgba(108, 92, 231, 0.55));
+}
+
+.more-games-text {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.more-games-title {
+    font-family: 'Space Grotesk', 'Outfit', sans-serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    background: linear-gradient(135deg, var(--crystal-white) 0%, var(--accent-secondary) 55%, var(--accent-cyan) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.more-games-sub {
+    font-size: 0.75rem;
+    font-weight: 400;
+    letter-spacing: 0.2px;
+    line-height: 1.35;
+    color: var(--text-secondary);
+    white-space: normal;
+    overflow-wrap: break-word;
+}
+
+.more-games-arrow {
+    margin-left: auto;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--accent-gold);
+    transition: transform 0.2s ease;
+}
+
+.more-games-btn:hover .more-games-arrow,
+.more-games-btn:focus-visible .more-games-arrow {
+    transform: translateX(4px);
+}
+
 /* Footer */
 .menu-footer {
     text-align: center;
@@ -794,6 +901,12 @@ body {
     .lobby-panel { padding: 18px; }
     .menu-footer { font-size: 0.75rem; }
 
+    .more-games { margin-top: 16px; }
+    .more-games-btn { gap: 12px; padding: 13px 16px; border-radius: 14px; }
+    .more-games-icon { font-size: 1.4rem; }
+    .more-games-title { font-size: 0.98rem; }
+    .more-games-sub { font-size: 0.7rem; }
+
     #game-ui { justify-content: flex-start; gap: 10px; }
     #top-bar { flex-direction: row; align-items: stretch; justify-content: center; gap: 8px; }
     .panel { min-width: 0; flex: 1 1 auto; max-width: 240px; font-size: 0.85rem; padding: 10px 12px; }
@@ -812,6 +925,9 @@ body {
     .mode-card { padding: 15px; }
     .mode-card h3 { font-size: 1.1rem; }
     .btn-large { padding: 14px 20px; font-size: 0.95rem; }
+    .more-games-btn { padding: 12px 14px; gap: 10px; }
+    .more-games-title { font-size: 0.92rem; }
+    .more-games-sub { display: none; }
     #top-bar { gap: 6px; }
     .panel { font-size: 0.78rem; padding: 8px 10px; border-radius: 10px; }
     #game-controls .btn { font-size: 0.85rem; padding: 10px 12px; }
@@ -841,6 +957,12 @@ body {
     .diff-desc { display: none; }
     .btn-large { padding: 12px 20px; font-size: 0.95rem; }
     .menu-footer { display: none; }
+    .more-games { margin-top: 12px; }
+    .more-games-btn { padding: 10px 16px; gap: 10px; border-radius: 12px; max-width: 420px; }
+    .more-games-icon { font-size: 1.25rem; }
+    .more-games-title { font-size: 0.9rem; }
+    .more-games-sub { display: none; }
+    .more-games-arrow { font-size: 1rem; }
 
     #game-ui { gap: 6px; }
     #top-bar { justify-content: flex-start; gap: 8px; }
@@ -878,6 +1000,11 @@ body {
     .panel { font-size: 1.05rem; padding: 14px 26px; min-width: 170px; }
     .btn { font-size: 1.05rem; padding: 14px 28px; }
     .btn-large { font-size: 1.2rem; padding: 18px 36px; }
+    .more-games-btn { padding: 18px 28px; gap: 18px; max-width: 640px; }
+    .more-games-icon { font-size: 1.9rem; }
+    .more-games-title { font-size: 1.2rem; }
+    .more-games-sub { font-size: 0.85rem; }
+    .more-games-arrow { font-size: 1.3rem; }
     #message-overlay { padding: 48px 60px; }
     #game-message { font-size: 1.9rem; }
     .timer-panel { min-width: 230px; }
