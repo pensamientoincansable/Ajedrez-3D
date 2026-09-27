@@ -814,10 +814,10 @@ body {
     font-size: 0.75rem;
     font-weight: 400;
     letter-spacing: 0.2px;
+    line-height: 1.35;
     color: var(--text-secondary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow-wrap: break-word;
 }
 
 .more-games-arrow {
@@ -830,7 +830,7 @@ body {
 
 .more-games-btn:hover .more-games-arrow,
 .more-games-btn:focus-visible .more-games-arrow {
-    transform: translate(3px, -3px);
+    transform: translateX(4px);
 }
 
 /* Footer */
@@ -905,7 +905,7 @@ body {
     .more-games-btn { gap: 12px; padding: 13px 16px; border-radius: 14px; }
     .more-games-icon { font-size: 1.4rem; }
     .more-games-title { font-size: 0.98rem; }
-    .more-games-sub { font-size: 0.7rem; white-space: normal; line-height: 1.3; }
+    .more-games-sub { font-size: 0.7rem; }
 
     #game-ui { justify-content: flex-start; gap: 10px; }
     #top-bar { flex-direction: row; align-items: stretch; justify-content: center; gap: 8px; }
