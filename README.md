@@ -43,6 +43,7 @@ Juego de ajedrez 3D con piezas cristalinas de geometría triangular, motor de aj
 
 ### 🎨 UI/UX Profesional
 - Menú principal con selección de modo y dificultad
+- Acceso inferior a la galería de más juegos 3D de Juegos π (abre en pestaña nueva)
 - Sin UI de dificultad durante partida (como solicitado)
 - Animaciones fluidas con easing cúbico
 - Efectos de captura con desvanecimiento y escala
